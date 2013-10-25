@@ -85,7 +85,7 @@ public class ControlRST implements IControl {
 	 */
 	public ControlRST(IPerception perception, INavigation navigation, NXTMotor leftMotor, NXTMotor rightMotor){
 		this.perception = perception;
-        this.navigation = navigation;
+        	this.navigation = navigation;
 		this.leftMotor = leftMotor;
 		this.rightMotor = rightMotor;
 		
