@@ -72,6 +72,10 @@ public class ControlRST implements IControl {
 	
     double currentDistance = 0.0;
     double Distance = 0.0;
+    double Kp_l = 10; 		//Proportional factor for P-Element (lego sensor)
+    double offset_l = 50; 	//Offset of light sensor for P-Element (lego sensor)
+    double e_l = 0;			//Error for lego light sensor
+    
   
 	
 	/**
@@ -112,7 +116,7 @@ public class ControlRST implements IControl {
 	 * @see parkingRobot.IControl#setVelocity(double velocity)
 	 */
 	public void setVelocity(double velocity) {
-		this.velocity = velocity;
+		this.velocity = velocity * 7;  //Velocity ranges from 0 to 100
 	}
 
 	/**
@@ -247,7 +251,19 @@ public class ControlRST implements IControl {
 	 */
     
 	private void exec_LINECTRL_ALGO(){
+		
+		double turnP = 0;
+		e_l=lineSensorRight-offset_l;
+		turnP = e_l * Kp_l;
+		leftMotor.setPower((int) (velocity+turnP));
+		rightMotor.setPower((int)(velocity-turnP));
 		leftMotor.forward();
+		rightMotor.flt();
+		
+		
+		
+		
+		/*leftMotor.forward();
 		rightMotor.forward();
 		int lowPower = 1;
 		int highPower = 30;
@@ -291,7 +307,7 @@ public class ControlRST implements IControl {
 			// when right sensor is on the line, turn right
 			leftMotor.setPower(highPower);
 			rightMotor.setPower(lowPower);
-		}
+		}*/
 	}
 	
 	private void stop(){
