@@ -69,12 +69,15 @@ public class ControlRST implements IControl {
 	EncoderSensor controlLeftEncoder     = null;
 
 	int lastTime = 0;
+	int lineSensorRightValue = 0;
+	int lineSensorLeftValue = 0;
 	
     double currentDistance = 0.0;
     double Distance = 0.0;
-    double Kp_l = 10; 		//Proportional factor for P-Element (lego sensor)
-    double offset_l = 50; 	//Offset of light sensor for P-Element (lego sensor)
-    double e_l = 0;			//Error for lego light sensor
+    double kp_ll = 2; 		//Proportional factor for P-Element (lego sensor)
+    double offset_ll = 50; 	//Offset of light sensor for P-Element (lego sensor)
+    double e_ll = 0;		//Error for lego light sensor
+    
     
   
 	
@@ -101,6 +104,7 @@ public class ControlRST implements IControl {
 		this.lineSensorLeft  		= perception.getLeftLineSensor();
 		
 		
+		
 		this.ctrlThread = new ControlThread(this);
 		
 		ctrlThread.setPriority(Thread.MAX_PRIORITY - 1);
@@ -116,7 +120,7 @@ public class ControlRST implements IControl {
 	 * @see parkingRobot.IControl#setVelocity(double velocity)
 	 */
 	public void setVelocity(double velocity) {
-		this.velocity = velocity * 7;  //Velocity ranges from 0 to 100
+		this.velocity = velocity;  //Velocity ranges from 0 to 700
 	}
 
 	/**
@@ -217,7 +221,9 @@ public class ControlRST implements IControl {
 	 */
 	private void update_LINECTRL_Parameter(){
 		this.lineSensorRight		= perception.getRightLineSensor();
-		this.lineSensorLeft  		= perception.getLeftLineSensor();		
+		this.lineSensorLeft  		= perception.getLeftLineSensor();
+		this.lineSensorRightValue	= perception.getRightLineSensorValue();
+		this.lineSensorLeftValue	= perception.getLeftLineSensorValue();
 	}
 	
 	/**
@@ -252,13 +258,35 @@ public class ControlRST implements IControl {
     
 	private void exec_LINECTRL_ALGO(){
 		
-		double turnP = 0;
-		e_l=lineSensorRight-offset_l;
-		turnP = e_l * Kp_l;
-		leftMotor.setPower((int) (velocity+turnP));
-		rightMotor.setPower((int)(velocity-turnP));
+		velocity = 200;
+		double correctionP = 0; //Correction power
+		double turnPA = 0;		//Turn Power port A
+		double turnPC = 0;		//Turn Power port B
+		e_ll=lineSensorRightValue-offset_ll;	
+		correctionP = e_ll * kp_ll; 
+		turnPA = velocity+correctionP;
+		turnPC = velocity-correctionP;
+		
+		if (turnPA < 0){							//if an output power is less than zero the motor shall go backwards
+			turnPA = -turnPA;
+			rightMotor.setPower((int) (turnPA));
+			rightMotor.backward();
+		}
+		
+		else if(turnPC < 0){
+			turnPC = -turnPC;
+			leftMotor.setPower((int) (turnPC));
+			leftMotor.backward();
+		}
+		
+		else{
+		rightMotor.setPower((int) (turnPA));
+		leftMotor.setPower((int)(turnPC));		
+		}
+		
+		rightMotor.forward();
 		leftMotor.forward();
-		rightMotor.flt();
+		
 		
 		
 		
