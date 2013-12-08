@@ -49,7 +49,14 @@ public class PerceptionPMP implements IPerception {
 	double FrontSideSensorDistance	=	0;
 	double BackSensorDistance		=	0;
 	double BackSideSensorDistance	=	0;
-	
+	//********************************************************************************
+	double offset_r = 0;	//Offset for right light sensor
+	double offset_l = 0;	//Offset for left  light sensor
+	double division = 0;	
+	float LSr = 0;			
+	float LSl = 0;
+	float maxerror = 0;
+	//********************************************************************************
 	EncoderSensor controlRightEncoder    = new EncoderSensor();
 	EncoderSensor controlLeftEncoder     = new EncoderSensor();
 	EncoderSensor navigationRightEncoder = new EncoderSensor();
@@ -88,40 +95,30 @@ public class PerceptionPMP implements IPerception {
 	
 	
 	public synchronized int getLeftLineSensor() {
-		int groundtype =1;	//standard: no black or white ground
-		if(this.LeftLineSensor < (this.LSlblack+5)){	//black ground
-			groundtype=2;
-		}
-		if(this.LeftLineSensor > (this.LSlwhite-5)){ //white ground
-			groundtype=0;
-		}
-		return groundtype;
+
+		return LeftLineSensor;
 	}
 	public synchronized int getRightLineSensor() {
-		int groundtype =1;	//standard: no black or white ground
-		
-		if(this.RightLineSensor < (this.LSrblack+5)){	//black ground
-			groundtype=2;
-		}
-		if(this.RightLineSensor > (this.LSrwhite-5)){ //white ground
-			groundtype=0;
-		}
-		return groundtype;
+
+		return RightLineSensor;
 	}
 	
 	public int getLeftLineSensorValue(){
-		return ((this.LeftLineSensor-this.LSlblack)/(this.LSlwhite-this.LSlblack))*100;
+		return ((this.LeftLineSensor-this.LSlblack)*100/(this.LSlwhite-this.LSlblack));
 	}
 	
-	public int getRightLineSensorValue(){
-		return ((this.RightLineSensor-this.LSrblack)/(this.LSrwhite-this.LSrblack))*100;
+	public double getRightLineSensorValue(){
+		
+		division = (double)(this.RightLineSensor-this.LSrblack)/(double)(this.LSrwhite-this.LSrblack);
+		division =  division * 100;
+		return division;
 	}
 	
 	public synchronized void calibrateLineSensors(){
 		LCD.clear();
 		LCD.drawString("Kalibriere", 0, 0);
 		LCD.drawString("Liniensensor", 0, 1);
-		LCD.drawString("Weisser Untergr.", 0, 2);
+		//LCD.drawString("Weisser Untergr.", 0, 2);
 		LCD.drawString("wenn position.", 0, 3);
 		LCD.drawString("Enter Druecken", 0, 4);
 		while(!Button.ENTER.isDown()){
@@ -130,9 +127,10 @@ public class PerceptionPMP implements IPerception {
 			updateSensors();
 		}
 		Button.ENTER.waitForPressAndRelease();
-		this.LSrwhite = this.RightLineSensor;
-		this.LSlwhite = this.LeftLineSensor;
-		LCD.clear();
+		//this.LSrwhite = this.RightLineSensor;
+		//this.LSlwhite = this.LeftLineSensor;		
+		
+		/*LCD.clear();
 		LCD.drawString("Kalibriere", 0, 0);
 		LCD.drawString("Liniensensor", 0, 1);
 		LCD.drawString("Schwarzer Untergr.", 0, 2);
@@ -146,6 +144,9 @@ public class PerceptionPMP implements IPerception {
 		Button.ENTER.waitForPressAndRelease();
 		this.LSrblack = this.RightLineSensor;
 		this.LSlblack = this.LeftLineSensor;
+		
+		offset_r = (LSrwhite + LSrblack)/2;
+		offset_l = (LSlwhite + LSlblack)/2;*/
 	}
 	
 	public void showSensorData() {
@@ -206,8 +207,6 @@ public class PerceptionPMP implements IPerception {
 	public synchronized double getBackSideSensorDistance(){
 		return this.BackSideSensorDistance;
 	}
-	
-	
 	
 	public synchronized void updateSensors(){
 		 updateLeftEncoderAngle();

@@ -6,6 +6,8 @@ import parkingRobot.IControl;
 import parkingRobot.IPerception;
 import parkingRobot.IPerception.*;
 
+import lejos.nxt.Button;
+import lejos.nxt.LCD;
 import lejos.nxt.NXTMotor;
 import parkingRobot.INavigation;
 
@@ -15,6 +17,7 @@ import parkingRobot.INavigation;
  */
 public class ControlRST implements IControl {
 	
+	//private
 	/**
 	 * reference to {@link IPerception.EncoderSensor} class for left robot wheel which measures the wheels angle difference
 	 * between actual an last request
@@ -56,8 +59,6 @@ public class ControlRST implements IControl {
     int leftMotorPower = 0;
 	int rightMotorPower = 0;
 	
-	double velocity = 0.0;
-	double angularVelocity = 0.0;
 	
 	Pose startPosition = new Pose();
 	Pose currentPosition = new Pose();
@@ -65,21 +66,71 @@ public class ControlRST implements IControl {
 	
 	ControlMode currentCTRLMODE = null;
 	
-	EncoderSensor controlRightEncoder    = null;
+	EncoderSensor controlRightEncoder    = null; 
 	EncoderSensor controlLeftEncoder     = null;
-
+	IPerception.AngleDifferenceMeasurement ADM		= null; 
 	int lastTime = 0;
-	int lineSensorRightValue = 0;
-	int lineSensorLeftValue = 0;
+	double lineSensorRightValue = 0;
+	double lineSensorLeftValue = 0;
+	float error = 0; //Differecne between right and left light sensor
+	int e_ll_old = 0;	//Previous error value
+	int delta_e = 0;	//Current error minus old error
+	long delta_t = 0;	//Time difference
+	float maxerror = 0; //Offset between roght and left sensor when on line
+	float last_error = 0; 
+	int count = 0;
+	static final double WHEELDIAM = 5.6;
+	static final double TRACKWIDTH = 13.5;
+	static final double	SCOPE = 3.1415926*WHEELDIAM;
+	static final double distPerDeg = SCOPE/360;
+	double omega = 0;
+	double turnRadius =	0;
+	double leftSpeed = 0;
+	double rightSpeed = 0;
+	double nl =0;
+	double nr =0;
 	
     double currentDistance = 0.0;
     double Distance = 0.0;
-    double kp_ll = 2; 		//Proportional factor for P-Element (lego sensor)
-    double offset_ll = 50; 	//Offset of light sensor for P-Element (lego sensor)
-    double e_ll = 0;		//Error for lego light sensor
+    static final double KP_LL1 = 0.2; 		//Proportional factor for P-Element (lego sensor)
+    static final double KP_LL2 = 1;
+    static double KP_LL = 2;
+    static final double K_I = 0.04;		//Proportional factor for I-Element
+    static final double KD = 20;			//Proportional factor for D-Element
+    double offset_ll = 0; 	//Offset of light sensor for P-Element (lego sensor)
+    double offset_lr = 0;	//Offset for right light sensor
+    double e_ll = 0;	//Error for lego light sensor
+    double correctionP = 0; //Correction power
+	double integrator = 0; 	//Integrator value
+	double deriv = 0;		//Derivative 
+	double turnPA = 0;		//Turn Power port A
+	double turnPB = 0;		//Turn Power port B
+	double last_e_ll = 0;
+	double velocity = 15;
+	double derivm0 = 0;
+	double derivm1 = 0;
+	double derivm2 = 0;
+	double derivm3 = 0;
+	static final double DERIVMIN = 0.075;
+    double last_deriv = 0;
+	 
+    //Beste einstellung: KP_LL 0.6; KI 0.08; KD 0.8; Geschw.: 29 Abstand: sehr weit; Runden:2
+	
+	//Robust geradeaus hšhe ca. 3 KP_LL 0.53; KI 0.035; KD 50; Geschw.: 33 Abstand: 2.5; Runden:0
+	//Beste Einstellung hoch: hšhe ca. 2 KP_LL 2.3; KI 0.032; KD 6; Geschw.: 33 Abstand: 4; Runden: >10
     
+    //Beste einstellung schnell: hšhe ca. 2.5 KP_LL 2.1; KI 0.039; KD 20; Geschw.: 50 Abstand: 4; Runden: 7
     
-  
+    //KP_LL 0.5; KI 0.07; KD 0.5; Geschw.: 25 Abstand: weit; Runden:1,5
+	//KP_LL 0.5; KI 0.07; KD 0.0; Geschw.: 25 Abstand: weit; Runden:2
+	//KP_LL 0.5; KI 0.07; KD 2; Geschw.: 25 Abstand: weit; Runden:0
+	//KP_LL 0.5; KI 0.07; KD 5; Geschw.: 25 Abstand: weit; Runden:0
+	//KP_LL 0.5; KI 0.07; KD 15; Geschw.: 25 Abstand: weit; Runden:0
+	//KP_LL 0.5; KI 0.07; KD 15; Geschw.: 25 Abstand: mittel; Runden:0
+	
+
+
+
 	
 	/**
 	 * provides the reference transfer so that the class knows its corresponding navigation object (to obtain the current 
@@ -92,8 +143,8 @@ public class ControlRST implements IControl {
 	 */
 	public ControlRST(IPerception perception, INavigation navigation, NXTMotor leftMotor, NXTMotor rightMotor){
 		this.perception = perception;
-        	this.navigation = navigation;
-		this.leftMotor = leftMotor;
+        this.navigation = navigation;
+		this.leftMotor 	= leftMotor;
 		this.rightMotor = rightMotor;
 		
 		this.currentCTRLMODE = ControlMode.INACTIVE;
@@ -102,9 +153,7 @@ public class ControlRST implements IControl {
 		this.encoderRight = perception.getControlRightEncoder();
 		this.lineSensorRight		= perception.getRightLineSensor();
 		this.lineSensorLeft  		= perception.getLeftLineSensor();
-		
-		
-		
+				
 		this.ctrlThread = new ControlThread(this);
 		
 		ctrlThread.setPriority(Thread.MAX_PRIORITY - 1);
@@ -128,7 +177,7 @@ public class ControlRST implements IControl {
 	 * @see parkingRobot.IControl#setAngularVelocity(double angularVelocity)
 	 */
 	public void setAngularVelocity(double angularVelocity) {
-		this.angularVelocity = angularVelocity;
+		this.omega = angularVelocity;
 
 	}
 	
@@ -141,8 +190,6 @@ public class ControlRST implements IControl {
 		this.destination.setLocation((float) x, (float) y);
 	}
 	
-
-	
 	/**
 	 * sets current pose
 	 * @see parkingRobot.IControl#setPose(Pose currentPosition)
@@ -152,7 +199,6 @@ public class ControlRST implements IControl {
 		this.currentPosition = currentPosition;
 	}
 	
-
 	/**
 	 * set control mode
 	 */
@@ -222,8 +268,9 @@ public class ControlRST implements IControl {
 	private void update_LINECTRL_Parameter(){
 		this.lineSensorRight		= perception.getRightLineSensor();
 		this.lineSensorLeft  		= perception.getLeftLineSensor();
-		this.lineSensorRightValue	= perception.getRightLineSensorValue();
-		this.lineSensorLeftValue	= perception.getLeftLineSensorValue();
+		//this.lineSensorRightValue	= perception.getRightLineSensorValue();
+		//this.lineSensorLeftValue	= perception.getLeftLineSensorValue();
+		
 	}
 	
 	/**
@@ -231,7 +278,7 @@ public class ControlRST implements IControl {
 	 * optionally one of them could be set to zero for simple test.
 	 */
     private void exec_VWCTRL_ALGO(){  
-		this.drive(this.velocity, this.angularVelocity);
+		this.drive(this.velocity, this.omega);
 	}
 	
     private void exec_SETPOSE_ALGO(){
@@ -258,90 +305,93 @@ public class ControlRST implements IControl {
     
 	private void exec_LINECTRL_ALGO(){
 		
-		velocity = 200;
-		double correctionP = 0; //Correction power
-		double turnPA = 0;		//Turn Power port A
-		double turnPC = 0;		//Turn Power port B
-		e_ll=lineSensorRightValue-offset_ll;	
-		correctionP = e_ll * kp_ll; 
+		error = (lineSensorRight-lineSensorLeft);
+		if (error>0 && last_error <0 || error<0 && last_error >0 ){integrator=0;} //bei VZW integrator auf 0
+		integrator = integrator + error;
+		ADM = encoderRight.getEncoderMeasurement();
+		delta_t = ADM.getDeltaT();		
+		deriv = (error-last_error)/(delta_t);
+		
+		if(Math.abs(error)>3){
+		velocity = velocity/(1.3*Math.log(Math.abs(error)));}
+		//velocity = velocity-2*Math.abs(error); 
+		
+		//velocity = velocity - 3*Math.abs(error);
+		if (deriv > derivm0){derivm0=deriv;}
+		else if (deriv > derivm1){derivm1=deriv;}
+		else if (deriv > derivm2){derivm2=deriv;}
+		else if (deriv > derivm3){derivm3=deriv;}
+		/*if (Math.abs(deriv) > DERIVMIN && Math.abs(deriv) > Math.abs(last_deriv))
+			{
+			count =40;
+			last_deriv = deriv;
+			}*/
+		//if (count > 0)
+		if (Math.abs(deriv) > DERIVMIN && Math.abs(deriv) > Math.abs(last_deriv) && Math.abs(error)>=1)
+			{correctionP = error * (KP_LL+0.35*Math.log((Math.abs(error))) /*0.055*error*/) + K_I*integrator + KD*deriv*4;}
+		else correctionP = error*KP_LL + K_I*integrator + KD*deriv;
+		if(count==0){last_deriv=0;}
 		turnPA = velocity+correctionP;
-		turnPC = velocity-correctionP;
+		turnPB = velocity-correctionP;
+		last_error = error;
+		velocity = 50;
+		/*
+		error = (lineSensorRight-lineSensorLeft);
+		if (error>0 && last_error <0 || error<0 && last_error >0 ){integrator=0;} //bei VZW integrator auf 0		
+		integrator = integrator + error;		
+		ADM = encoderRight.getEncoderMeasurement();
+		delta_t = ADM.getDeltaT();		
+		deriv = (error-last_error)/(delta_t);
+		//if (error<5 && error>-5){deriv=0;}
+		//if(error<7 && error>-7){KP_LL = KP_LL1;}
+		//else {KP_LL=KP_LL2;}
+		if(error<0){
+			correctionP = Math.pow(10,(-error/maxerror)-1) * KP_LL*error + K_I*integrator + KD*deriv;
+			}
+		else{correctionP = Math.pow(10,(error/maxerror)-1) * KP_LL*error + K_I*integrator + KD*deriv;}
 		
+		turnPA = velocity+correctionP;
+		turnPB = velocity-correctionP;
+		last_error = error;
+		*/
+		LCD.clear();	
+		LCD.drawString("SensorR: " + lineSensorRight , 0, 0);
+		LCD.drawString("SensorL: " + lineSensorLeft , 0, 1);
+		LCD.drawString("error: " + error , 0, 2);
+		LCD.drawString("Velocity: " + velocity , 0, 3);
+		LCD.drawString("TPA: " + turnPA, 0, 4);
+		LCD.drawString("TPB: " + turnPB, 0, 5);
+		LCD.drawString("CP: " + correctionP, 0, 6);
 		if (turnPA < 0){							//if an output power is less than zero the motor shall go backwards
-			turnPA = -turnPA;
-			rightMotor.setPower((int) (turnPA));
-			rightMotor.backward();
+			//turnPA = -turnPA;
+			rightMotor.setPower((int)(-turnPA));
+			leftMotor.setPower((int)turnPB);
+			rightMotor.backward();			
+			leftMotor.forward();
 		}
 		
-		else if(turnPC < 0){
-			turnPC = -turnPC;
-			leftMotor.setPower((int) (turnPC));
+		else if(turnPB < 0){
+			//turnPB = -turnPB;
+			leftMotor.setPower((int)(-turnPB));
+			rightMotor.setPower((int)turnPA);
 			leftMotor.backward();
-		}
-		
+			rightMotor.forward();
+			
+			}
+			
 		else{
-		rightMotor.setPower((int) (turnPA));
-		leftMotor.setPower((int)(turnPC));		
-		}
+			rightMotor.setPower((int)(turnPA));
+			leftMotor.setPower((int)(turnPB));		
+			rightMotor.forward();
+			leftMotor.forward();
+			}
 		
-		rightMotor.forward();
-		leftMotor.forward();
-		
-		
-		
-		
-		
-		/*leftMotor.forward();
-		rightMotor.forward();
-		int lowPower = 1;
-		int highPower = 30;
-		
-
-        if(this.lineSensorLeft == 2 && (this.lineSensorRight == 1)){
-			
-			// when left sensor is on the line, turn left
-    	    leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
-			
-		} 
-        else if(this.lineSensorRight == 2 && (this.lineSensorLeft == 1)){
-		
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
-		}
-		else if(this.lineSensorLeft == 2 && (this.lineSensorRight == 0)){
-			
-			// when left sensor is on the line, turn left
-			leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
-			
-		} 
-		else if(this.lineSensorRight == 2 && (this.lineSensorLeft == 0)){
-		
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
-		}
-		else if(this.lineSensorLeft == 1 && this.lineSensorRight == 0) {
-				
-			// when left sensor is on the line, turn left
-			leftMotor.setPower(lowPower);
-			rightMotor.setPower(highPower);
-				
-		} 
-		else if(this.lineSensorRight == 1 && this.lineSensorLeft == 0) {
-			
-			// when right sensor is on the line, turn right
-			leftMotor.setPower(highPower);
-			rightMotor.setPower(lowPower);
-		}*/
 	}
 	
 	private void stop(){
 		this.leftMotor.stop();
 		this.rightMotor.stop();
-	}
+		}
 		
     /**
      * calculates the left and right angle speed of the both motors with given velocity 
@@ -350,6 +400,61 @@ public class ControlRST implements IControl {
      * @param omega angle velocity of the robot
      */
 	private void drive(double v, double omega){
-		//Aufgabe 3.2
+		
+		angleMeasurementLeft = encoderLeft.getEncoderMeasurement();
+		angleMeasurementRight = encoderRight.getEncoderMeasurement();
+		if (omega != 0)	
+		{
+			turnRadius = v/omega;
+			if (turnRadius != 0)
+				{
+				rightSpeed= (turnRadius+(TRACKWIDTH/2))*v/turnRadius;
+				leftSpeed = (turnRadius-(TRACKWIDTH/2))*v/turnRadius;								
+				nr = rightSpeed/SCOPE;	
+				nl = leftSpeed/SCOPE;							
+				}
+			else{nr = omega*TRACKWIDTH/(2*SCOPE);
+				nl = -nr;
+				}
+		}
+		else{nr = nl = v/SCOPE;}
+		
+		if((angleMeasurementRight.getAngleSum()/angleMeasurementRight.getDeltaT())*1000/360<nr){turnPA++;}
+		if((angleMeasurementRight.getAngleSum()/angleMeasurementRight.getDeltaT())*1000/360>nr){turnPA--;}
+		
+		if((angleMeasurementLeft.getAngleSum()/angleMeasurementLeft.getDeltaT())*1000/360<nl){turnPB++;}
+		if((angleMeasurementLeft.getAngleSum()/angleMeasurementLeft.getDeltaT())*1000/360>nl){turnPB--;}
+		
+		LCD.clear();
+		LCD.drawString("nls: " + nl, 0, 1);
+		LCD.drawString("nrs: "+nr , 0, 2);
+		LCD.drawString("nr: " + (angleMeasurementRight.getAngleSum()/angleMeasurementRight.getDeltaT())*1000/360 , 0, 3);
+		LCD.drawString("nl: " + (angleMeasurementLeft.getAngleSum()/angleMeasurementLeft.getDeltaT())*1000/360 , 0, 4);
+		LCD.drawString("TPB: " + turnPB, 0, 5);
+		LCD.drawString("TPA: " + turnPA, 0, 6);
+		
+		if (turnPA < 0){							//if an output power is less than zero the motor shall go backwards
+			rightMotor.setPower((int)(-turnPA));
+			leftMotor.setPower((int)turnPB);
+			rightMotor.backward();			
+			leftMotor.forward();
+		}
+		
+		else if(turnPB < 0){
+			leftMotor.setPower((int)(-turnPB));
+			rightMotor.setPower((int)turnPA);
+			leftMotor.backward();
+			rightMotor.forward();
+			
+			}
+			
+		else{
+			rightMotor.setPower((int)(turnPA));
+			leftMotor.setPower((int)(turnPB));		
+			rightMotor.forward();
+			leftMotor.forward();
+			}
+		}
+		
 	}
-}
+

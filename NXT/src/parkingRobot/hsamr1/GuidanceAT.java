@@ -2,6 +2,7 @@ package parkingRobot.hsamr1;
 
 import lejos.nxt.Button;
 import lejos.nxt.MotorPort;
+import lejos.nxt.NXT;
 import lejos.nxt.NXTMotor;
 import parkingRobot.IControl;
 import parkingRobot.IControl.*;
@@ -16,6 +17,8 @@ import parkingRobot.hsamr1.ControlRST;
 import parkingRobot.hsamr1.HmiPLT;
 import parkingRobot.hsamr1.NavigationAT;
 import parkingRobot.hsamr1.PerceptionPMP;
+
+import lejos.nxt.comm.RConsole;
 
 
 /**
@@ -60,7 +63,7 @@ public class GuidanceAT {
 	/**
 	 * state in which the main finite state machine is running at the moment
 	 */
-	protected static CurrentStatus currentStatus 	= CurrentStatus.INACTIVE;
+	protected static CurrentStatus currentStatus 	= CurrentStatus.DRIVING;
 	/**
 	 * state in which the main finite state machine was running before entering the actual state
 	 */
@@ -95,7 +98,7 @@ public class GuidanceAT {
 	 * @throws Exception exception for thread management
 	 */
 	public static void main(String[] args) throws Exception {		
-        currentStatus = CurrentStatus.INACTIVE;
+        currentStatus = CurrentStatus.DRIVING;
         lastStatus    = CurrentStatus.EXIT;
 		
 		// Generate objects
@@ -109,16 +112,21 @@ public class GuidanceAT {
 		INavigation navigation = new NavigationAT(perception);
 		IControl    control    = new ControlRST(perception, navigation, leftMotor, rightMotor);
 		INxtHmi  	hmi        = new HmiPLT(perception, navigation, control);
-				
+		
+		/*LCPBTResponder lcpThread = new LCPBTResponder();
+		lcpThread.setDaemon(true);
+		lcpThread.start();*/
+		
 		while(true) {
-			showData(navigation, perception);
+			//showData(navigation, perception);
 			
         	switch ( currentStatus )
-        	{
+        	{	
+       	
 				case DRIVING:
 					//Into action
 					if ( lastStatus != CurrentStatus.DRIVING ){
-						control.setCtrlMode(ControlMode.LINE_CTRL);
+						control.setCtrlMode(ControlMode.VW_CTRL);
 					}
 					
 					//While action				
