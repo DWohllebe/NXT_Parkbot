@@ -94,8 +94,8 @@ public class ControlRST implements IControl {
     double Distance = 0.0;
     static final double KP_LL1 = 0.2; 		//Proportional factor for P-Element (lego sensor)
     static final double KP_LL2 = 1;
-    static double KP_LL = 2;
-    static final double K_I = 0.04;		//Proportional factor for I-Element
+    static double KP_LL = 0.9;
+    static final double K_I = 0.045;		//Proportional factor for I-Element
     static final double KD = 20;			//Proportional factor for D-Element
     double offset_ll = 0; 	//Offset of light sensor for P-Element (lego sensor)
     double offset_lr = 0;	//Offset for right light sensor
@@ -111,7 +111,7 @@ public class ControlRST implements IControl {
 	double derivm1 = 0;
 	double derivm2 = 0;
 	double derivm3 = 0;
-	static final double DERIVMIN = 0.075;
+	static final double DERIVMIN = 0.08;
     double last_deriv = 0;
 	 
     //Beste einstellung: KP_LL 0.6; KI 0.08; KD 0.8; Geschw.: 29 Abstand: sehr weit; Runden:2
@@ -120,6 +120,7 @@ public class ControlRST implements IControl {
 	//Beste Einstellung hoch: hšhe ca. 2 KP_LL 2.3; KI 0.032; KD 6; Geschw.: 33 Abstand: 4; Runden: >10
     
     //Beste einstellung schnell: hšhe ca. 2.5 KP_LL 2.1; KI 0.039; KD 20; Geschw.: 50 Abstand: 4; Runden: 7
+    //Schmutz KP_LL 0.6/0.8; KI 0.039; KD 15; Geschw.: 44 Abstand: 4; Runden: 7
     
     //KP_LL 0.5; KI 0.07; KD 0.5; Geschw.: 25 Abstand: weit; Runden:1,5
 	//KP_LL 0.5; KI 0.07; KD 0.0; Geschw.: 25 Abstand: weit; Runden:2
@@ -312,9 +313,9 @@ public class ControlRST implements IControl {
 		delta_t = ADM.getDeltaT();		
 		deriv = (error-last_error)/(delta_t);
 		
-		if(Math.abs(error)>3){
+		if(Math.abs(error)>15){
 		velocity = velocity/(1.3*Math.log(Math.abs(error)));}
-		//velocity = velocity-2*Math.abs(error); 
+		else if (Math.abs(error)<11)velocity = velocity-1.5*Math.abs(error); 
 		
 		//velocity = velocity - 3*Math.abs(error);
 		if (deriv > derivm0){derivm0=deriv;}
@@ -327,14 +328,16 @@ public class ControlRST implements IControl {
 			last_deriv = deriv;
 			}*/
 		//if (count > 0)
-		if (Math.abs(deriv) > DERIVMIN && Math.abs(deriv) > Math.abs(last_deriv) && Math.abs(error)>=1)
-			{correctionP = error * (KP_LL+0.35*Math.log((Math.abs(error))) /*0.055*error*/) + K_I*integrator + KD*deriv*4;}
-		else correctionP = error*KP_LL + K_I*integrator + KD*deriv;
-		if(count==0){last_deriv=0;}
+		if (Math.abs(deriv) > DERIVMIN && Math.abs(deriv) > Math.abs(last_deriv) && Math.abs(error)>=18)
+			{correctionP = error * (KP_LL+0.2*Math.log((Math.abs(error)))) + K_I*integrator + KD*deriv*3;}
+		else if(Math.abs(error) > 19) {correctionP = error*KP_LL + K_I*integrator*3 + KD*deriv;}
+		else {correctionP = error*KP_LL + K_I*integrator + KD*deriv;}
+		//if(count==0){last_deriv=0;}
 		turnPA = velocity+correctionP;
 		turnPB = velocity-correctionP;
 		last_error = error;
-		velocity = 50;
+		last_deriv = deriv;
+		velocity = 55;
 		/*
 		error = (lineSensorRight-lineSensorLeft);
 		if (error>0 && last_error <0 || error<0 && last_error >0 ){integrator=0;} //bei VZW integrator auf 0		
@@ -358,7 +361,7 @@ public class ControlRST implements IControl {
 		LCD.drawString("SensorR: " + lineSensorRight , 0, 0);
 		LCD.drawString("SensorL: " + lineSensorLeft , 0, 1);
 		LCD.drawString("error: " + error , 0, 2);
-		LCD.drawString("Velocity: " + velocity , 0, 3);
+		LCD.drawString("deriv1: " + derivm1 , 0, 3);
 		LCD.drawString("TPA: " + turnPA, 0, 4);
 		LCD.drawString("TPB: " + turnPB, 0, 5);
 		LCD.drawString("CP: " + correctionP, 0, 6);
