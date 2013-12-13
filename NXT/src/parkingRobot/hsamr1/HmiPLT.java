@@ -198,5 +198,19 @@ public class HmiPLT implements INxtHmi{
 			dataOut = null;
 		}		
 	}
+	
+	/**
+	 * Sets the mode.
+	 * @return success
+	 */
+	public boolean setMode(Mode mMode) {
+		try {
+			mode = mMode;
+			return true;
+		}
+		catch (Exception e) {
+			return false;
+		}
+	}
 
 }
