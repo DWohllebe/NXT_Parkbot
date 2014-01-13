@@ -56,7 +56,5 @@ public interface INxtHmi {
 	 * @return the current driving mode
 	 */
 	public Mode getMode();
-	
-	public boolean setMode(Mode mMode);
 }
 

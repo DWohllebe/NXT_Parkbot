@@ -50,8 +50,8 @@ public interface IControl {
 	 * @param velocity the velocity of the robot to be set
 	 */	
 	public void setVelocity(double velocity);
-
-	
+	public boolean arrived();
+	public boolean hasParked();
 	/**
 	 *  set the required angular velocity
 	 *  

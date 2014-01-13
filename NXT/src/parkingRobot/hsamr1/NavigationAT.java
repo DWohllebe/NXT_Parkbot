@@ -1,10 +1,13 @@
-package parkingRobot.HSAMR1;
+package parkingRobot.hsamr1;
 
 import lejos.geom.Line;
+import lejos.nxt.LCD;
 import lejos.robotics.navigation.Pose;
+
 import parkingRobot.INavigation;
 import parkingRobot.IPerception;
-import parkingRobot.HSAMR1.NavigationThread;
+
+import parkingRobot.hsamr1.NavigationThread;
 
 
 /**
@@ -92,9 +95,9 @@ public class NavigationAT implements INavigation{
 	/**
 	 * robot specific constant: distance between wheels
 	 */
-	static final double WHEEL_DISTANCE		= 	0.114; // only rough guess, to be measured exactly and maybe refined by experiments
+	static final double WHEEL_DISTANCE		= 	0.13; // only rough guess, to be measured exactly and maybe refined by experiments
 
-	static final double MOUSE_FULL_TURN     =   0.05; //muss noch gemessen werden distanz bei einer vollen drehung 
+	
 	/**
 	 * map array of line references, whose corresponding lines form a closed chain and represent the map of the robot course
 	 */
@@ -111,7 +114,8 @@ public class NavigationAT implements INavigation{
 	 * pose class containing bundled current X and Y location and corresponding heading angle phi
 	 */
 	Pose pose								= new Pose();
-
+	 double uSum = 0; 
+	double vSum =0;
 	/**
 	 * thread started by the 'Navigation' class for background calculating
 	 */
@@ -129,6 +133,7 @@ public class NavigationAT implements INavigation{
 		this.encoderLeft  = perception.getNavigationLeftEncoder();
 		this.encoderRight = perception.getNavigationRightEncoder();
 		this.mouseodo = perception.getNavigationOdo();		
+
 		
 		navThread.setPriority(Thread.MAX_PRIORITY - 1);
 		navThread.setDaemon(true); // background thread that is not need to terminate in order for the user program to terminate
@@ -201,37 +206,33 @@ public class NavigationAT implements INavigation{
 		this.backSideSensorDistance	= perception.getBackSideSensorDistance();
 	}		 	
 	
-	/**OdoDifferenceMeasurement
+	/**
 	 * calculates the robot pose from the measurements
 	 */
 	private void calculateLocation(){
-		/*double leftAngleSpeed 	= this.angleMeasurementLeft.getAngleSum()  / ((double)this.angleMeasurementLeft.getDeltaT()/1000);  //degree/seconds
+		perception.showSensorData();
+		LCD.drawString("uSum: "+this.uSum, 0, 0);
+		LCD.drawString("vSum: "+this.vSum, 0, 1);
+		double leftAngleSpeed 	= this.angleMeasurementLeft.getAngleSum()  / ((double)this.angleMeasurementLeft.getDeltaT()/1000);  //degree/seconds
 		double rightAngleSpeed 	= this.angleMeasurementRight.getAngleSum() / ((double)this.angleMeasurementRight.getDeltaT()/1000); //degree/seconds
 
 		double vLeft		= (leftAngleSpeed  * Math.PI * LEFT_WHEEL_RADIUS ) / 180 ; //velocity of left  wheel in m/s
 		double vRight		= (rightAngleSpeed * Math.PI * RIGHT_WHEEL_RADIUS) / 180 ; //velocity of right wheel in m/s		
 		double w 			= (vRight - vLeft) / WHEEL_DISTANCE; //angular velocity of robot in rad/s
 		
-		Double R 			= new Double(( WHEEL_DISTANCE / 2 ) * ( (vLeft + vRight) / (vRight - vLeft) ));	*/							
-		
-		double[] xArray		={0,2.1,2.1,1.8,0.3,0}; //Array für Eckpunkte
-		double[] yArray		={0,0,0.6,0.6,0.6,0.6};
-		int cornercount		= 0;
+		Double R 			= new Double(( WHEEL_DISTANCE / 2 ) * ( (vLeft + vRight) / (vRight - vLeft) ));								
 		
 		double ICCx 		= 0;
 		double ICCy 		= 0;
-
+		
 		double xResult 		= 0;
 		double yResult 		= 0;
 		double angleResult 	= 0;
+		this.uSum = uSum + mouseOdoMeasurement.getUSum();
+		this.vSum = vSum + mouseOdoMeasurement.getVSum();
+		double deltaT       = ((double)this.angleMeasurementLeft.getDeltaT())/1000;
 		
-		/*double deltaT       = ((double)this.angleMeasurementLeft.getDeltaT())/1000;*/
-		double deltaT       = ((double)this.mouseOdoMeasurement.getDeltaT())/1000;
-		double delta_vSum	= ((double)this.mouseOdoMeasurement.getVSum()) / 1000;
-		double delta_uSum	= ((double)this.mouseOdoMeasurement.getUSum()) / 1000;
-		double deltaHead	= ((double)this.mouseOdoMeasurement.getUSum()) * 360.0 / MOUSE_FULL_TURN * Math.Pi/180; //Winkeländerung in rad
-		
-		/*if (R.isNaN()) { //robot don't move
+		if (R.isNaN()) { //robot don't move
 			xResult			= this.pose.getX();
 			yResult			= this.pose.getY();
 			angleResult 	= this.pose.getHeading();
@@ -246,28 +247,7 @@ public class NavigationAT implements INavigation{
 			xResult 		= Math.cos(w * deltaT) * (this.pose.getX()-ICCx) - Math.sin(w * deltaT) * (this.pose.getY() - ICCy) + ICCx;
 			yResult 		= Math.sin(w * deltaT) * (this.pose.getX()-ICCx) + Math.cos(w * deltaT) * (this.pose.getY() - ICCy) + ICCy;
 			angleResult 	= this.pose.getHeading() + w * deltaT;
-		}*/
-		
-		if (delta_vSum==0) { //robot don't move
-			xResult			= this.pose.getX();
-			yResult			= this.pose.getY();
-			angleResult 	= this.pose.getHeading();
-		} else if (delta_uSum==0) { //robot moves straight forward/backward, no upright movement
-			angleResult 	= this.pose.getHeading();
-
-		} else {
 			
-			angleresult=this.pose.getheading()+deltaHead;
-		}
-
-		xResult			= this.pose.getX()+ delta_vSum * Math.sin(this.pose.getHeading());
-		yResult			= this.pose.getY()+ delta_vSum * Math.cos(this.pose.getHeading());
-		
-		if (this.frontSensorDistance<=50) { //Corner detection with frontsensor
-			++cornercount;
-			if (cornercount>5) {cornercount = 0;}
-			xResult			=xArray[cornercount];
-			yResult			=yArray[cornercount];
 		}
 		
 		this.pose.setLocation((float)xResult, (float)yResult);

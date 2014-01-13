@@ -118,17 +118,18 @@ public class PerceptionPMP implements IPerception {
 		LCD.clear();
 		LCD.drawString("Kalibriere", 0, 0);
 		LCD.drawString("Liniensensor", 0, 1);
-		//LCD.drawString("Weisser Untergr.", 0, 2);
+		LCD.drawString("l->w, r->s", 0, 2);
 		LCD.drawString("wenn position.", 0, 3);
 		LCD.drawString("Enter Druecken", 0, 4);
-		while(!Button.ENTER.isDown()){
+		while(!Button.ENTER.isDown()){/*
 			LCD.drawString("Sensorwert r:"+ (this.RightLineSensor), 0, 6);
-			LCD.drawString("Sensorwert l:"+ (this.LeftLineSensor), 0, 7);
+			LCD.drawString("Sensorwert l:"+ (this.LeftLineSensor), 0, 7);*/
+			LCD.drawString("error "+ (this.LeftLineSensor-this.RightLineSensor), 0, 7);
 			updateSensors();
 		}
 		Button.ENTER.waitForPressAndRelease();
-		//this.LSrwhite = this.RightLineSensor;
-		//this.LSlwhite = this.LeftLineSensor;		
+		this.LSrwhite = this.RightLineSensor;
+		this.LSlwhite = this.LeftLineSensor;		
 		
 		/*LCD.clear();
 		LCD.drawString("Kalibriere", 0, 0);
@@ -151,7 +152,7 @@ public class PerceptionPMP implements IPerception {
 	
 	public void showSensorData() {
 		LCD.clear();
-		LCD.drawString("Sensordata ", 0, 0);
+		//LCD.drawString("USUM "+NavigationAT.getUsum(), 0, 0);
 		LCD.drawString("U: "+this.UOdmometry, 0, 1);
 		LCD.drawString("V: "+this.VOdometry, 0, 2);
 		LCD.drawString("OdoT: "+this.OdometryT, 0, 3);
@@ -213,7 +214,6 @@ public class PerceptionPMP implements IPerception {
 		 updateRightEncoderAngle();
 		 updateLeftLightSensor();
 		 updateRightLightSensor();
-
 		 updateArduinoSensors();
 	}
 	private void updateArduinoSensors() {
@@ -240,19 +240,25 @@ public class PerceptionPMP implements IPerception {
 				readBytesSumm=0;
 			}
 		}
-		if(timeoutc==20) return;
+		if(timeoutc==20) {return;}
 		this.UOdmometry		=	(double)(((sensorBytes[1])<<8) | (sensorBytes[0] & 0xff));
 		this.VOdometry		=	(double)(((sensorBytes[3])<<8) | (sensorBytes[2] & 0xff));
 		this.OdometryT		=   (int)((readBuffer[5]<<8) | (readBuffer[4] & 0xff));
 		this.FrontSensorDistance		=	(double)(((sensorBytes[7] & 0xff)<<8) | (sensorBytes[6] & 0xff));
 		this.FrontSideSensorDistance	=	(double)(((sensorBytes[9] & 0xff)<<8) | (sensorBytes[8] & 0xff));
 		this.BackSensorDistance		=		(double)(((sensorBytes[11] & 0xff)<<8) | (sensorBytes[10] & 0xff));
-		this.BackSideSensorDistance	=		(double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));		
+		this.BackSideSensorDistance	=		(double)(((sensorBytes[13] & 0xff)<<8) | (sensorBytes[12] & 0xff));	
+		
+		
 
 		this.controlOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
 		this.navigationOdo.addShift(this.UOdmometry,this.VOdometry,this.OdometryT);
 	}
-
+//***************************
+	public int getMaxError(){
+		return LSlwhite -LSrwhite;
+	}
+//***************************	
 	
 	private void updateLeftLightSensor() {
 		LeftLineSensor = leftLight.getLightValue();

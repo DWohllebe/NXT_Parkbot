@@ -4,6 +4,7 @@ import lejos.nxt.Button;
 import lejos.nxt.MotorPort;
 import lejos.nxt.NXT;
 import lejos.nxt.NXTMotor;
+import lejos.nxt.NXTRegulatedMotor;
 import parkingRobot.IControl;
 import parkingRobot.IControl.*;
 import parkingRobot.INxtHmi;
@@ -18,6 +19,7 @@ import parkingRobot.hsamr1.HmiPLT;
 import parkingRobot.hsamr1.NavigationAT;
 import parkingRobot.hsamr1.PerceptionPMP;
 
+import lejos.nxt.comm.LCPBTResponder;
 import lejos.nxt.comm.RConsole;
 
 
@@ -100,7 +102,7 @@ public class GuidanceAT {
 	public static void main(String[] args) throws Exception {		
         currentStatus = CurrentStatus.DRIVING;
         lastStatus    = CurrentStatus.EXIT;
-		
+		//RConsole.open();
 		// Generate objects
 		
 		NXTMotor leftMotor  = new NXTMotor(MotorPort.B);
@@ -122,17 +124,42 @@ public class GuidanceAT {
 			
         	switch ( currentStatus )
         	{	
-       	
+        	
 				case DRIVING:
-					//Into action
+					
+					
 					if ( lastStatus != CurrentStatus.DRIVING ){
-						control.setCtrlMode(ControlMode.LINE_CTRL);
+						control.setDestination(0, 1, 0);
+						control.setVelocity(0.1);
+						control.setCtrlMode(ControlMode.SETPOSE); 
+						while(control.arrived()==false){lejos.util.Delay.msDelay(1);}
+						control.arrived();
+						/*control.setDestination(180, 0.64, 0.51);
+						lejos.util.Delay.msDelay(100);
+						RConsole.println("Pose: "+control.getDest());
+						while(control.arrived()==false){lejos.util.Delay.msDelay(1);}
+						
+						control.setDestination(-90, 0.0, 0.51);
+						lejos.util.Delay.msDelay(100);
+						RConsole.println("Pose: "+control.getDest());
+						while(control.arrived()==false){lejos.util.Delay.msDelay(1);}
+						
+						control.setDestination(0, 0, 0);
+						lejos.util.Delay.msDelay(100);
+						while(control.arrived()==false){lejos.util.Delay.msDelay(1);}
+						
+						control.setDestination(90, 0.64, 0);
+						lejos.util.Delay.msDelay(100);
+						while(control.arrived()==false){lejos.util.Delay.msDelay(1);}
+						RConsole.println("Pose: "+control.getDest());*/
+						Button.waitForAnyPress();
 					}
 					
-					//While action				
-					{
-						//nothing to do here
-					}					
+					//While action			
+					
+						
+						
+									
 					
 					//State transition check
 					lastStatus = currentStatus;

@@ -7,6 +7,10 @@ package parkingRobot;
  * @author PMP
  */
 public interface IPerception {
+	
+	public int getMaxError();
+
+	
 	/**
 	 * returns the groundcolortype of the left linesensor
 	 * use <code>{@link IPerception#calibrateLineSensors}</code> to calibrate the sensors for given environmental brightness
@@ -14,6 +18,7 @@ public interface IPerception {
 	 * @return groundtype (0-white ground, 1-grey ground, 2-black ground)
 	 */
 	public int getLeftLineSensor();
+	
 	/**
 	 * returns the groundcolortype of the right linesensor
 	 * use <code>{@link IPerception#calibrateLineSensors}</code> to calibrate the sensors for given environmental brightness
@@ -29,7 +34,7 @@ public interface IPerception {
 	 * 
 	 * @return brightness of the groundcolor in percent(%)
 	 */
-	public int getLeftLineSensorValue();
+	//public int getLeftLineSensorValue();
 	
 	/**
 	 * returns the brightness of the subsurfacecolor under the right linesensor in percent 
